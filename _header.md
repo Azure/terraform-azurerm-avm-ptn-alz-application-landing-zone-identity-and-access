@@ -2,19 +2,19 @@
 
 This module provisions PIM-enabled access using Entra role-assignable security groups and optional Entitlement Management access packages.
 
-It:
+## Below are the steps the module will perform
 
-Creates role-assignable Entra security groups to act as PIM access groups.
-Assigns Azure RBAC roles (for example, Contributor at subscription or resource group scope) to those groups.
-Optionally creates Entitlement Management catalogs and access packages.
-Registers the PIM groups as catalog resources and attaches the group Member role to access packages.
-Optionally creates assignment policies with approval, requestor scope, and expiration settings.
+1. Creates role-assignable Entra security groups to act as PIM access groups.
+2. Assigns Azure RBAC roles (for example, Contributor at subscription or resource group scope) to those groups.
+3. Optionally creates Entitlement Management catalogs and access packages.
+4. Registers the PIM groups as catalog resources and attaches the group Member role to access packages.
+5. Optionally creates assignment policies with approval, requestor scope, and expiration settings.
 
-Microsoft Graph minimum (app permissions)
+## Microsoft Graph minimum (app permissions)
 
-Group.ReadWrite.All
-Reason: creates Entra security groups, including role-assignable groups and approval groups.
-RoleManagement.ReadWrite.Directory
-Reason: required when creating groups with isAssignableToRole = true.
-EntitlementManagement.ReadWrite.All
-Reason: creates and manages catalogs, access packages, resource requests, resource role scopes, and assignment policies.
+1. Group.ReadWrite.All
+	Reason: creates Entra security groups, including role-assignable groups and approval groups.
+2. RoleManagement.ReadWrite.Directory
+	Reason: required when creating groups with isAssignableToRole = true.
+3. EntitlementManagement.ReadWrite.All
+	Reason: creates and manages catalogs, access packages, resource requests, resource role scopes, and assignment policies.
