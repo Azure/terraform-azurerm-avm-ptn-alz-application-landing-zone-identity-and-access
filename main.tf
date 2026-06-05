@@ -12,7 +12,7 @@ resource "msgraph_resource" "pim_group" {
     mailEnabled        = false
     mailNickname       = each.value.mail_nickname
     securityEnabled    = true
-    isAssignableToRole = true # makes the group eligible for PIM-for-Groups
+    isAssignableToRole = true
   }
   response_export_values = { id = "id" }
 }

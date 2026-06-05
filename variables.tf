@@ -24,6 +24,7 @@ variable "pim_groups" {
   nullable    = false
   description = <<DESCRIPTION
 Map of role-assignable Entra ID security groups to create as PIM-enabled groups.
+Groups in this map are created with `isAssignableToRole = true`.
 
 - `display_name`  - Display name of the group.
 - `mail_nickname` - Mail nickname (no spaces).
