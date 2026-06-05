@@ -1,30 +1,276 @@
-# TODO: Replace this dummy resource azurerm_resource_group.TODO with your module resource
-resource "azurerm_resource_group" "TODO" {
-  location = var.location
-  name     = var.name # calling code must supply the name
-  tags     = var.tags
+# =============================================================================
+# Step 1 – PIM-enabled groups (role-assignable Entra ID security groups)
+# =============================================================================
+resource "msgraph_resource" "pim_group" {
+  for_each = var.pim_groups
+
+  url         = "groups"
+  api_version = "v1.0"
+  body = {
+    displayName        = each.value.display_name
+    description        = each.value.description
+    mailEnabled        = false
+    mailNickname       = each.value.mail_nickname
+    securityEnabled    = true
+    isAssignableToRole = true # makes the group eligible for PIM-for-Groups
+  }
+  response_export_values = { id = "id" }
 }
 
-# required AVM resources interfaces
-resource "azurerm_management_lock" "this" {
-  count = var.lock != null ? 1 : 0
+# =============================================================================
+# Step 2 – Approval groups (regular security groups used as approvers)
+# =============================================================================
+resource "msgraph_resource" "approval_group" {
+  for_each = var.pim_approval_groups
 
-  lock_level = var.lock.kind
-  name       = coalesce(var.lock.name, "lock-${var.lock.kind}")
-  scope      = azurerm_resource_group.TODO.id # TODO: Replace with your azurerm resource name
-  notes      = var.lock.kind == "CanNotDelete" ? "Cannot delete the resource or its child resources." : "Cannot delete or modify the resource or its child resources."
+  url         = "groups"
+  api_version = "v1.0"
+  body = {
+    displayName     = each.value.display_name
+    description     = each.value.description
+    mailEnabled     = false
+    mailNickname    = each.value.mail_nickname
+    securityEnabled = true
+  }
+  response_export_values = { id = "id" }
 }
 
-resource "azurerm_role_assignment" "this" {
-  for_each = var.role_assignments
+# =============================================================================
+# Step 3 – Enable PIM for Groups (Privileged Access Group) on each PIM group.
+# Creating the first eligibility schedule request registers the group as a PAG,
+# which exposes the 'eligible-member' role in access package catalogs so that
+# approved requestors receive JIT eligibility rather than permanent membership.
+# =============================================================================
+resource "msgraph_resource_action" "pim_group_eligibility_request" {
+  for_each = var.pim_group_eligibility_requests
 
-  principal_id                           = each.value.principal_id
-  scope                                  = azurerm_resource_group.TODO.id # TODO: Replace this dummy resource azurerm_resource_group.TODO with your module resource
+  api_version  = "beta"
+  resource_url = "identityGovernance/privilegedAccess/group"
+  action       = "eligibilityScheduleRequests"
+  method       = "POST"
+  body = {
+    accessId      = each.value.access_id
+    principalId   = each.value.principal_id
+    groupId       = msgraph_resource.pim_group[each.value.pim_group_key].id
+    action        = each.value.action
+    justification = each.value.justification
+    scheduleInfo  = each.value.schedule_info
+  }
+  response_export_values = { id = "id", status = "status" }
+  depends_on             = [msgraph_resource.pim_group]
+}
+
+
+
+# =============================================================================
+# Step 4 – Azure RBAC assignment: PIM group gets subscription/RG role
+# The group holds the permission; PIM/access packages control who is a member.
+# =============================================================================
+resource "azurerm_role_assignment" "pim_group_scoped" {
+  for_each = var.pim_group_role_assignments
+
+  principal_id                           = msgraph_resource.pim_group[each.value.pim_group_key].id
+  scope                                  = each.value.scope
   condition                              = each.value.condition
   condition_version                      = each.value.condition_version
   delegated_managed_identity_resource_id = each.value.delegated_managed_identity_resource_id
-  principal_type                         = each.value.principal_type
+  principal_type                         = "Group"
   role_definition_id                     = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? each.value.role_definition_id_or_name : null
   role_definition_name                   = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? null : each.value.role_definition_id_or_name
-  skip_service_principal_aad_check       = each.value.skip_service_principal_aad_check
+  skip_service_principal_aad_check       = false
+}
+
+
+
+# =============================================================================
+# Step 6 – Entitlement Management catalog (optional access-package path)
+# =============================================================================
+resource "msgraph_resource" "access_package_catalog" {
+  for_each = var.access_package_catalogs
+
+  url         = "identityGovernance/entitlementManagement/catalogs"
+  api_version = "v1.0"
+  body = {
+    displayName = each.value.display_name
+    description = each.value.description
+  }
+  response_export_values = { id = "id" }
+}
+
+# =============================================================================
+# Step 7 – Access package (shell; becomes useful after Steps 8-10)
+# =============================================================================
+resource "msgraph_resource" "access_package" {
+  for_each = var.access_packages
+
+  url         = "identityGovernance/entitlementManagement/accessPackages"
+  api_version = "beta"
+  body = {
+    catalogId   = msgraph_resource.access_package_catalog[each.value.catalog_key].id
+    displayName = each.value.display_name
+    description = each.value.description
+  }
+  response_export_values = { id = "id" }
+}
+
+# =============================================================================
+# Step 8 – Add the PIM group to the catalog as an entitlement resource
+# Graph requires this before the group's roles can be used in an access package.
+# =============================================================================
+resource "msgraph_resource_action" "access_package_catalog_resource_request" {
+  for_each = local.access_package_group_catalog_associations
+
+  api_version  = "v1.0"
+  resource_url = "identityGovernance/entitlementManagement"
+  action       = "resourceRequests"
+  method       = "POST"
+  body = {
+    requestType = "adminAdd"
+    resource = {
+      displayName  = var.pim_groups[each.value.pim_group_key].display_name
+      description  = var.pim_groups[each.value.pim_group_key].description
+      originId     = msgraph_resource.pim_group[each.value.pim_group_key].id
+      originSystem = "AadGroup"
+    }
+    catalog = {
+      id = msgraph_resource.access_package_catalog[each.value.catalog_key].id
+    }
+  }
+  response_export_values = { id = "id", state = "state" }
+  retry = {
+    error_message_regex = [
+      ".*referenced do not exist.*",
+      ".*does not exist.*",
+    ]
+  }
+}
+
+# =============================================================================
+# Step 9a – Read the catalog resource entry for the group (id + root scope)
+# =============================================================================
+data "msgraph_resource" "access_package_catalog_group_resource" {
+  for_each = local.access_package_group_catalog_associations
+
+  api_version = "v1.0"
+  url         = "identityGovernance/entitlementManagement/catalogs/${msgraph_resource.access_package_catalog[each.value.catalog_key].id}/resources"
+  query_parameters = {
+    "$expand" = ["scopes"]
+    "$filter" = ["originId eq '${msgraph_resource.pim_group[each.value.pim_group_key].id}'"]
+  }
+  response_export_values = {
+    resource_id           = "value[0].id"
+    resource_display_name = "value[0].displayName"
+    resource_description  = "value[0].description"
+    resource_origin_id    = "value[0].originId"
+    scope_id              = "value[0].scopes[?isRootScope==`true`] | [0].id"
+    scope_display_name    = "value[0].scopes[?isRootScope==`true`] | [0].displayName"
+    scope_description     = "value[0].scopes[?isRootScope==`true`] | [0].description"
+    scope_origin_id       = "value[0].scopes[?isRootScope==`true`] | [0].originId"
+  }
+  depends_on = [msgraph_resource_action.access_package_catalog_resource_request]
+}
+
+# =============================================================================
+# Step 9b – Read the AadGroup Member role from the catalog resourceRoles endpoint
+# (Graph does not return roles via the $expand=roles path for AadGroup resources)
+# =============================================================================
+data "msgraph_resource" "access_package_catalog_group_role" {
+  for_each = local.access_package_group_catalog_associations
+
+  api_version = "v1.0"
+  url         = "identityGovernance/entitlementManagement/catalogs/${msgraph_resource.access_package_catalog[each.value.catalog_key].id}/resourceRoles"
+  query_parameters = {
+    "$expand" = ["resource"]
+    "$filter" = ["(originSystem eq 'AadGroup' and resource/id eq '${data.msgraph_resource.access_package_catalog_group_resource[each.key].output.resource_id}')"]
+  }
+  response_export_values = {
+    role_display_name = "value[?displayName=='eligible-member'] | [0].displayName"
+    role_origin_id    = "value[?displayName=='eligible-member'] | [0].originId"
+  }
+  # Wait for PAG registration so 'eligible-member' role is visible in the catalog.
+  depends_on = [data.msgraph_resource.access_package_catalog_group_resource, msgraph_resource_action.pim_group_eligibility_request]
+}
+
+# =============================================================================
+# Step 10 – Attach PIM group Member role to access package (resourceRoleScope)
+# This is what makes the package actually grant membership in the PIM group.
+# Using msgraph_resource_action here avoids long-running polling issues seen on
+# this Graph endpoint with msgraph_resource.
+# =============================================================================
+resource "msgraph_resource_action" "access_package_group_membership" {
+  for_each = var.access_package_group_memberships
+
+  api_version  = "v1.0"
+  resource_url = "identityGovernance/entitlementManagement/accessPackages/${msgraph_resource.access_package[each.value.access_package_key].id}"
+  action       = "resourceRoleScopes"
+  method       = "POST"
+  body = {
+    role = {
+      displayName  = data.msgraph_resource.access_package_catalog_group_role["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.role_display_name
+      originSystem = "AadGroup"
+      originId     = data.msgraph_resource.access_package_catalog_group_role["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.role_origin_id
+      resource = {
+        id           = data.msgraph_resource.access_package_catalog_group_resource["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.resource_id
+        displayName  = data.msgraph_resource.access_package_catalog_group_resource["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.resource_display_name
+        description  = data.msgraph_resource.access_package_catalog_group_resource["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.resource_description
+        originId     = data.msgraph_resource.access_package_catalog_group_resource["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.resource_origin_id
+        originSystem = "AadGroup"
+      }
+    }
+    scope = {
+      id           = data.msgraph_resource.access_package_catalog_group_resource["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.scope_id
+      displayName  = data.msgraph_resource.access_package_catalog_group_resource["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.scope_display_name
+      description  = data.msgraph_resource.access_package_catalog_group_resource["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.scope_description
+      originId     = data.msgraph_resource.access_package_catalog_group_resource["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.scope_origin_id
+      originSystem = "AadGroup"
+      isRootScope  = true
+    }
+  }
+  response_export_values = { id = "id" }
+  retry = {
+    error_message_regex = [
+      ".*already exists.*",
+      ".*One or more added object references already exist.*",
+    ]
+  }
+  depends_on = [data.msgraph_resource.access_package_catalog_group_role]
+}
+
+# =============================================================================
+# Step 11 – Access package assignment policy (approval + expiry settings)
+# =============================================================================
+resource "msgraph_resource" "access_package_assignment_policy" {
+  for_each = var.access_package_assignment_policies
+
+  url           = "identityGovernance/entitlementManagement/accessPackageAssignmentPolicies"
+  api_version   = "beta"
+  update_method = "PUT"
+  body = {
+    accessPackageId = msgraph_resource.access_package[each.value.access_package_key].id
+    displayName     = each.value.display_name
+    description     = each.value.description
+    expiration      = each.value.expiration
+    requestorSettings = {
+      scopeType      = each.value.requestor_scope_type
+      acceptRequests = true
+    }
+    requestApprovalSettings = {
+      isApprovalRequired = true
+      approvalStages = [
+        {
+          approvalStageTimeOutInDays = each.value.approval_stage_timeout_in_days
+          primaryApprovers = [
+            {
+              "@odata.type" = "#microsoft.graph.groupMembers"
+              groupId       = msgraph_resource.approval_group[each.value.approval_group_key].id
+              description   = each.value.approval_group_description
+            }
+          ]
+        }
+      ]
+    }
+    reviewSettings = each.value.review_settings
+    questions      = each.value.questions
+  }
+  response_export_values = { id = "id" }
 }
