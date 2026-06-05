@@ -6,12 +6,12 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
-    msgraph = {
-      source  = "microsoft/msgraph"
-      version = "~> 0.3"
-    }
     modtm = {
       source  = "azure/modtm"
+      version = "~> 0.3"
+    }
+    msgraph = {
+      source  = "microsoft/msgraph"
       version = "~> 0.3"
     }
     random = {
@@ -51,56 +51,6 @@ resource "azurerm_resource_group" "this" {
 module "test" {
   source = "../.."
 
-  enable_telemetry = var.enable_telemetry
-
-  # Create the PIM group and the approver group.
-  pim_groups = {
-    contributor = {
-      display_name  = "pim-sub-contributor"
-      mail_nickname = "pimsubcontributor"
-      description   = "PIM-enabled group – grants Contributor on the test RG"
-    }
-  }
-
-  pim_approval_groups = {
-    approvers = {
-      display_name  = "pim-sub-contributor-approvers"
-      mail_nickname = "pimsubcontribapprovers"
-      description   = "Approvers for pim-sub-contributor elevation requests"
-    }
-  }
-  # Assign Contributor at resource-group scope to the PIM group.
-  pim_group_role_assignments = {
-    contributor_rg = {
-      pim_group_key              = "contributor"
-      scope                      = azurerm_resource_group.this.id
-      role_definition_id_or_name = "Contributor"
-    }
-  }
-
-  # Optional access package path that grants membership in the PIM group.
-  access_package_catalogs = {
-    identity = {
-      display_name = "identity-access-catalog"
-      description  = "Catalog for PIM-backed subscription access packages"
-    }
-  }
-
-  access_packages = {
-    sub_contributor = {
-      catalog_key  = "identity"
-      display_name = "Subscription Contributor via PIM Group"
-      description  = "Request membership in pim-sub-contributor (grants Contributor on the RG)"
-    }
-  }
-
-  access_package_group_memberships = {
-    contrib_pkg = {
-      access_package_key = "sub_contributor"
-      pim_group_key      = "contributor"
-    }
-  }
-
   access_package_assignment_policies = {
     contrib_policy = {
       access_package_key             = "sub_contributor"
@@ -116,6 +66,50 @@ module "test" {
       }
       review_settings = { isEnabled = false }
       questions       = []
+    }
+  }
+  # Optional access package path that grants membership in the PIM group.
+  access_package_catalogs = {
+    identity = {
+      display_name = "identity-access-catalog"
+      description  = "Catalog for PIM-backed subscription access packages"
+    }
+  }
+  access_package_group_memberships = {
+    contrib_pkg = {
+      access_package_key = "sub_contributor"
+      pim_group_key      = "contributor"
+    }
+  }
+  access_packages = {
+    sub_contributor = {
+      catalog_key  = "identity"
+      display_name = "Subscription Contributor via PIM Group"
+      description  = "Request membership in pim-sub-contributor (grants Contributor on the RG)"
+    }
+  }
+  enable_telemetry = var.enable_telemetry
+  pim_approval_groups = {
+    approvers = {
+      display_name  = "pim-sub-contributor-approvers"
+      mail_nickname = "pimsubcontribapprovers"
+      description   = "Approvers for pim-sub-contributor elevation requests"
+    }
+  }
+  # Assign Contributor at resource-group scope to the PIM group.
+  pim_group_role_assignments = {
+    contributor_rg = {
+      pim_group_key              = "contributor"
+      scope                      = azurerm_resource_group.this.id
+      role_definition_id_or_name = "Contributor"
+    }
+  }
+  # Create the PIM group and the approver group.
+  pim_groups = {
+    contributor = {
+      display_name  = "pim-sub-contributor"
+      mail_nickname = "pimsubcontributor"
+      description   = "PIM-enabled group – grants Contributor on the test RG"
     }
   }
 }

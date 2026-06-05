@@ -10,12 +10,12 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
-    msgraph = {
-      source  = "microsoft/msgraph"
-      version = "~> 0.3"
-    }
     modtm = {
       source  = "azure/modtm"
+      version = "~> 0.3"
+    }
+    msgraph = {
+      source  = "microsoft/msgraph"
       version = "~> 0.3"
     }
     random = {
