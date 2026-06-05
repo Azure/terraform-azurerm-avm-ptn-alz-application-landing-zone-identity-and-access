@@ -21,6 +21,11 @@ output "pim_group_role_assignments" {
   value       = { for k, v in azurerm_role_assignment.pim_group_scoped : k => v.id }
 }
 
+output "pim_group_role_assignment_resource_ids" {
+  description = "Map of Azure RBAC role assignment resource IDs for PIM-enabled groups."
+  value       = { for k, v in azurerm_role_assignment.pim_group_scoped : k => v.id }
+}
+
 output "pim_groups" {
   description = "Map of created PIM-enabled Entra ID groups. Each entry has `id` and `display_name`."
   value = {
