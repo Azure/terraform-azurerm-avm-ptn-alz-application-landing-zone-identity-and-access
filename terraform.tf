@@ -6,13 +6,13 @@ terraform {
       source  = "azure/azapi"
       version = "~> 2.4"
     }
-    modtm = {
-      source  = "azure/modtm"
-      version = "~> 0.3"
-    }
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
+    }
+    modtm = {
+      source  = "azure/modtm"
+      version = "~> 0.3"
     }
     msgraph = {
       source  = "microsoft/msgraph"

@@ -32,6 +32,8 @@ The following requirements are needed by this module:
 
 - <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 4.0)
 
+- <a name="requirement_modtm"></a> [modtm](#requirement\_modtm) (~> 0.3)
+
 - <a name="requirement_msgraph"></a> [msgraph](#requirement\_msgraph) (~> 0.3)
 
 - <a name="requirement_random"></a> [random](#requirement\_random) (~> 3.5)
@@ -41,7 +43,7 @@ The following requirements are needed by this module:
 The following resources are used by this module:
 
 - [azurerm_role_assignment.pim_group_scoped](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) (resource)
-- [modtm_telemetry.telemetry](https://registry.terraform.io/providers/hashicorp/modtm/latest/docs/resources/telemetry) (resource)
+- [modtm_telemetry.telemetry](https://registry.terraform.io/providers/azure/modtm/latest/docs/resources/telemetry) (resource)
 - [msgraph_resource.access_package](https://registry.terraform.io/providers/microsoft/msgraph/latest/docs/resources/resource) (resource)
 - [msgraph_resource.access_package_assignment_policy](https://registry.terraform.io/providers/microsoft/msgraph/latest/docs/resources/resource) (resource)
 - [msgraph_resource.access_package_catalog](https://registry.terraform.io/providers/microsoft/msgraph/latest/docs/resources/resource) (resource)
@@ -51,7 +53,7 @@ The following resources are used by this module:
 - [msgraph_resource_action.access_package_group_membership](https://registry.terraform.io/providers/microsoft/msgraph/latest/docs/resources/resource_action) (resource)
 - [random_uuid.telemetry](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/uuid) (resource)
 - [azapi_client_config.telemetry](https://registry.terraform.io/providers/azure/azapi/latest/docs/data-sources/client_config) (data source)
-- [modtm_module_source.telemetry](https://registry.terraform.io/providers/hashicorp/modtm/latest/docs/data-sources/module_source) (data source)
+- [modtm_module_source.telemetry](https://registry.terraform.io/providers/azure/modtm/latest/docs/data-sources/module_source) (data source)
 - [msgraph_resource.access_package_catalog_group_resource](https://registry.terraform.io/providers/microsoft/msgraph/latest/docs/data-sources/resource) (data source)
 - [msgraph_resource.access_package_catalog_group_role](https://registry.terraform.io/providers/microsoft/msgraph/latest/docs/data-sources/resource) (data source)
 
