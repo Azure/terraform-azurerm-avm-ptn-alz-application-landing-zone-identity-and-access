@@ -4,8 +4,8 @@ This module provisions PIM-enabled access using Entra role-assignable security g
 
 ## Below are the steps the module will perform
 
-1. Creates role-assignable Entra security groups to act as PIM access groups.
-2. Assigns Azure RBAC roles (for example, Contributor at subscription or resource group scope) to those groups.
+1. Creates two Entra security group types: role-assignable PIM access groups and approval groups.
+2. Assigns Azure RBAC roles (for example, Contributor at subscription or resource group scope) to PIM access groups.
 3. Optionally creates Entitlement Management catalogs and access packages.
 4. Registers the PIM groups as catalog resources and attaches the group Member role to access packages.
 5. Optionally creates assignment policies with approval, requestor scope, and expiration settings.
