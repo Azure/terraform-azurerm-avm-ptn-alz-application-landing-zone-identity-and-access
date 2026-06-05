@@ -16,13 +16,13 @@ output "pim_approval_groups" {
   }
 }
 
-output "pim_group_role_assignments" {
-  description = "Map of Azure RBAC role assignment IDs created for PIM-enabled groups."
+output "pim_group_role_assignment_resource_ids" {
+  description = "Map of Azure RBAC role assignment resource IDs for PIM-enabled groups."
   value       = { for k, v in azurerm_role_assignment.pim_group_scoped : k => v.id }
 }
 
-output "pim_group_role_assignment_resource_ids" {
-  description = "Map of Azure RBAC role assignment resource IDs for PIM-enabled groups."
+output "pim_group_role_assignments" {
+  description = "Map of Azure RBAC role assignment IDs created for PIM-enabled groups."
   value       = { for k, v in azurerm_role_assignment.pim_group_scoped : k => v.id }
 }
 
