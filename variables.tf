@@ -80,35 +80,6 @@ DESCRIPTION
 }
 
 # ---------------------------------------------------------------------------
-# Direct PIM eligibility grants (bypasses access packages)
-# ---------------------------------------------------------------------------
-variable "pim_group_eligibility_requests" {
-  type = map(object({
-    pim_group_key = string
-    principal_id  = string
-    action        = optional(string, "adminAssign")
-    access_id     = optional(string, "member")
-    justification = optional(string, "Assigned by Terraform")
-    schedule_info = optional(any, {
-      startDateTime = null
-      expiration    = { type = "noExpiration" }
-    })
-  }))
-  default     = {}
-  nullable    = false
-  description = <<DESCRIPTION
-Optional direct PIM eligibility grants for principals to a PIM-enabled group.
-
-- `pim_group_key` - Key in `var.pim_groups`.
-- `principal_id`  - Object ID of the principal to make eligible.
-- `action`        - adminAssign | adminRemove | adminUpdate.
-- `access_id`     - member | owner.
-- `justification` - Audit text.
-- `schedule_info` - Graph scheduleInfo (start/expiration).
-DESCRIPTION
-}
-
-# ---------------------------------------------------------------------------
 # Access package catalogs (optional)
 # ---------------------------------------------------------------------------
 variable "access_package_catalogs" {

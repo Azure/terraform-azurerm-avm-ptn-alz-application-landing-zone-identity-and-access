@@ -48,18 +48,12 @@ resource "azurerm_resource_group" "this" {
   name     = module.naming.resource_group.name_unique
 }
 
-# Retrieve the object ID of the principal running Terraform so it can be used
-# as the bootstrap eligible member that registers the group with PIM for Groups.
-data "azurerm_client_config" "current" {}
-
 module "test" {
   source = "../.."
 
   enable_telemetry = var.enable_telemetry
 
-  # -------------------------------------------------------------------------
-  # Step 1+2: PIM group and approver group
-  # -------------------------------------------------------------------------
+  # Create the PIM group and the approver group.
   pim_groups = {
     contributor = {
       display_name  = "pim-sub-contributor"
@@ -75,24 +69,7 @@ module "test" {
       description   = "Approvers for pim-sub-contributor elevation requests"
     }
   }
-  # -------------------------------------------------------------------------
-  # Step 3: Enable PIM for Groups (PAG) on the PIM group by assigning the
-  # Terraform runner as an eligible member. This bootstrap assignment registers
-  # the group with PIM for Groups so the 'eligible-member' catalog role appears.
-  # Users who request the access package will also receive eligible membership.
-  # -------------------------------------------------------------------------
-  pim_group_eligibility_requests = {
-    bootstrap_sp = {
-      pim_group_key = "contributor"
-      principal_id  = data.azurerm_client_config.current.object_id
-      action        = "adminAssign"
-      access_id     = "member"
-      justification = "Bootstrap PAG registration via Terraform SP"
-    }
-  }
-  # -------------------------------------------------------------------------
-  # Step 4: Assign Contributor at resource-group scope to the PIM group
-  # -------------------------------------------------------------------------
+  # Assign Contributor at resource-group scope to the PIM group.
   pim_group_role_assignments = {
     contributor_rg = {
       pim_group_key              = "contributor"
@@ -101,9 +78,7 @@ module "test" {
     }
   }
 
-  # -------------------------------------------------------------------------
-  # Steps 6-11: Optional access package path
-  # -------------------------------------------------------------------------
+  # Optional access package path that grants membership in the PIM group.
   access_package_catalogs = {
     identity = {
       display_name = "identity-access-catalog"

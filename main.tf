@@ -1,5 +1,5 @@
 # =============================================================================
-# Step 1 – PIM-enabled groups (role-assignable Entra ID security groups)
+# Role-assignable Entra ID security groups
 # =============================================================================
 resource "msgraph_resource" "pim_group" {
   for_each = var.pim_groups
@@ -18,7 +18,7 @@ resource "msgraph_resource" "pim_group" {
 }
 
 # =============================================================================
-# Step 2 – Approval groups (regular security groups used as approvers)
+# Approval groups used for access package approvals
 # =============================================================================
 resource "msgraph_resource" "approval_group" {
   for_each = var.pim_approval_groups
@@ -36,35 +36,7 @@ resource "msgraph_resource" "approval_group" {
 }
 
 # =============================================================================
-# Step 3 – Enable PIM for Groups (Privileged Access Group) on each PIM group.
-# Creating the first eligibility schedule request registers the group as a PAG,
-# which exposes the 'eligible-member' role in access package catalogs so that
-# approved requestors receive JIT eligibility rather than permanent membership.
-# =============================================================================
-resource "msgraph_resource_action" "pim_group_eligibility_request" {
-  for_each = var.pim_group_eligibility_requests
-
-  api_version  = "beta"
-  resource_url = "identityGovernance/privilegedAccess/group"
-  action       = "eligibilityScheduleRequests"
-  method       = "POST"
-  body = {
-    accessId      = each.value.access_id
-    principalId   = each.value.principal_id
-    groupId       = msgraph_resource.pim_group[each.value.pim_group_key].id
-    action        = each.value.action
-    justification = each.value.justification
-    scheduleInfo  = each.value.schedule_info
-  }
-  response_export_values = { id = "id", status = "status" }
-  depends_on             = [msgraph_resource.pim_group]
-}
-
-
-
-# =============================================================================
-# Step 4 – Azure RBAC assignment: PIM group gets subscription/RG role
-# The group holds the permission; PIM/access packages control who is a member.
+# Azure RBAC assignment for the PIM group
 # =============================================================================
 resource "azurerm_role_assignment" "pim_group_scoped" {
   for_each = var.pim_group_role_assignments
@@ -83,7 +55,7 @@ resource "azurerm_role_assignment" "pim_group_scoped" {
 
 
 # =============================================================================
-# Step 6 – Entitlement Management catalog (optional access-package path)
+# Entitlement Management catalog
 # =============================================================================
 resource "msgraph_resource" "access_package_catalog" {
   for_each = var.access_package_catalogs
@@ -98,7 +70,7 @@ resource "msgraph_resource" "access_package_catalog" {
 }
 
 # =============================================================================
-# Step 7 – Access package (shell; becomes useful after Steps 8-10)
+# Access package
 # =============================================================================
 resource "msgraph_resource" "access_package" {
   for_each = var.access_packages
@@ -114,8 +86,7 @@ resource "msgraph_resource" "access_package" {
 }
 
 # =============================================================================
-# Step 8 – Add the PIM group to the catalog as an entitlement resource
-# Graph requires this before the group's roles can be used in an access package.
+# Add the group to the catalog as an entitlement resource
 # =============================================================================
 resource "msgraph_resource_action" "access_package_catalog_resource_request" {
   for_each = local.access_package_group_catalog_associations
@@ -146,7 +117,7 @@ resource "msgraph_resource_action" "access_package_catalog_resource_request" {
 }
 
 # =============================================================================
-# Step 9a – Read the catalog resource entry for the group (id + root scope)
+# Read the catalog resource entry for the group
 # =============================================================================
 data "msgraph_resource" "access_package_catalog_group_resource" {
   for_each = local.access_package_group_catalog_associations
@@ -171,8 +142,7 @@ data "msgraph_resource" "access_package_catalog_group_resource" {
 }
 
 # =============================================================================
-# Step 9b – Read the AadGroup Member role from the catalog resourceRoles endpoint
-# (Graph does not return roles via the $expand=roles path for AadGroup resources)
+# Read the catalog Member role for the group resource
 # =============================================================================
 data "msgraph_resource" "access_package_catalog_group_role" {
   for_each = local.access_package_group_catalog_associations
@@ -184,18 +154,14 @@ data "msgraph_resource" "access_package_catalog_group_role" {
     "$filter" = ["(originSystem eq 'AadGroup' and resource/id eq '${data.msgraph_resource.access_package_catalog_group_resource[each.key].output.resource_id}')"]
   }
   response_export_values = {
-    role_display_name = "value[?displayName=='eligible-member'] | [0].displayName"
-    role_origin_id    = "value[?displayName=='eligible-member'] | [0].originId"
+    role_display_name_member = "value[?displayName=='Member'] | [0].displayName"
+    role_origin_id_member    = "value[?displayName=='Member'] | [0].originId"
   }
-  # Wait for PAG registration so 'eligible-member' role is visible in the catalog.
-  depends_on = [data.msgraph_resource.access_package_catalog_group_resource, msgraph_resource_action.pim_group_eligibility_request]
+  depends_on = [data.msgraph_resource.access_package_catalog_group_resource]
 }
 
 # =============================================================================
-# Step 10 – Attach PIM group Member role to access package (resourceRoleScope)
-# This is what makes the package actually grant membership in the PIM group.
-# Using msgraph_resource_action here avoids long-running polling issues seen on
-# this Graph endpoint with msgraph_resource.
+# Attach the group Member role to the access package
 # =============================================================================
 resource "msgraph_resource_action" "access_package_group_membership" {
   for_each = var.access_package_group_memberships
@@ -206,9 +172,9 @@ resource "msgraph_resource_action" "access_package_group_membership" {
   method       = "POST"
   body = {
     role = {
-      displayName  = data.msgraph_resource.access_package_catalog_group_role["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.role_display_name
+      displayName  = data.msgraph_resource.access_package_catalog_group_role["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.role_display_name_member
       originSystem = "AadGroup"
-      originId     = data.msgraph_resource.access_package_catalog_group_role["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.role_origin_id
+      originId     = data.msgraph_resource.access_package_catalog_group_role["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.role_origin_id_member
       resource = {
         id           = data.msgraph_resource.access_package_catalog_group_resource["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.resource_id
         displayName  = data.msgraph_resource.access_package_catalog_group_resource["${var.access_packages[each.value.access_package_key].catalog_key}:${each.value.pim_group_key}"].output.resource_display_name
@@ -229,6 +195,7 @@ resource "msgraph_resource_action" "access_package_group_membership" {
   response_export_values = { id = "id" }
   retry = {
     error_message_regex = [
+      ".*RoleNotFound.*",
       ".*already exists.*",
       ".*One or more added object references already exist.*",
     ]
@@ -237,7 +204,7 @@ resource "msgraph_resource_action" "access_package_group_membership" {
 }
 
 # =============================================================================
-# Step 11 – Access package assignment policy (approval + expiry settings)
+# Access package assignment policy (approval + expiry settings)
 # =============================================================================
 resource "msgraph_resource" "access_package_assignment_policy" {
   for_each = var.access_package_assignment_policies
