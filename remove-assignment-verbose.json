@@ -1,0 +1,8 @@
+{
+  "requestType": "adminRemove",
+  "accessPackageAssignment": {
+    "targetId": "737f9400-55a3-4dcc-b9f8-25a1b414f534",
+    "assignmentPolicyId": "2a60ffa8-275e-447f-93c8-231ff3ea7952",
+    "accessPackageId": "9fa4305f-ea16-4e2b-b3e5-cb220d308177"
+  }
+}

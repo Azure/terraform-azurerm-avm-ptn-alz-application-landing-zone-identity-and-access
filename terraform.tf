@@ -3,16 +3,19 @@ terraform {
 
   required_providers {
     azapi = {
-      source  = "Azure/azapi"
+      source  = "azure/azapi"
       version = "~> 2.4"
     }
-    # TODO: Ensure all required providers are listed here and the version property includes a constraint on the maximum major version.
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
     modtm = {
       source  = "azure/modtm"
+      version = "~> 0.3"
+    }
+    msgraph = {
+      source  = "microsoft/msgraph"
       version = "~> 0.3"
     }
     random = {
