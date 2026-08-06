@@ -24,8 +24,10 @@ Optional approval policies for access packages.
 - `access_package_key`             - Key in `var.access_packages`.
 - `approval_group_key`             - Key in `var.pim_approval_groups`.
 - `display_name`                   - Policy display name.
+- `description`                    - Optional description.
 - `requestor_scope_type`           - Who can request.
 - `approval_stage_timeout_in_days` - Approval timeout in days.
+- `approval_group_description`     - Optional description shown to approvers.
 - `expiration`                     - Assignment expiration settings.
 - `review_settings`                - Access-review settings.
 - `questions`                      - Optional request questions.
