@@ -1,0 +1,8 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/azure-verified-modules-tools/main/src/Avm.Authoring/Resources/Schemas/v1/avm-module-metadata.schema.json",
+  "moduleDisplayName": "ALZ Identity and Access Management ",
+  "moduleDescription": "AVM Pattern Module for ALZ Identity and Access Management ",
+  "canonicalType": "alz-application-landing-zone-identity-and-access",
+  "owners": [],
+  "telemetryIdPrefix": "46d3xtrf.ptn.e76a142"
+}
