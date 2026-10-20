@@ -1,3 +1,3 @@
-# terraform-azurerm-avm-template
+# ALZ Identity and Access Management
 
-This is a template repo for Terraform Azure Verified Modules.
+AVM Pattern Module for ALZ Identity and Access Management
